@@ -36,6 +36,11 @@ defconst "*ARGV*", newList(argv)
 
 ### REPL
 
+const
+  lib = "lib/scm/lib.scm".slurp
+
+lib.evalText
+
 if file.isNil:
   echo "$1 v$2 - (c) $3 $4" % [program, version, CompileDate[0 .. 3], author]
   while true:

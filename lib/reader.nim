@@ -11,11 +11,6 @@ import
 let
   # Original PCRE:  """[\s,]*(~@|[\[\]{}()'`~^@]|"(?:\\.|[^\\"])*"|;.*|[^\s\[\]{}('"`,;)]*)"""
   REGEX_TOKEN   = re"""[\s,]*{(~@|[\[\]\{\}()'`~^@]|"(\\.|[^\\"])*"|;[^\\n]*|[^\s\[\]\{\}('"`,;)]*)}"""
-  REGEX_INT     = re"""^[\d]+$"""
-  REGEX_STRING  = re"""^".*"$"""
-  REGEX_KEYWORD  = re"""^:[\w]+$"""
-  REGEX_COMMENT = re"""^;"""
-
 
 const
   UNMATCHED_PAREN = "expected ')', got EOF"
@@ -24,7 +19,7 @@ const
   UNMATCHED_DOUBLE_QUOTE = "expected '\"', got EOF"
   INVALID_HASHMAP_KEY = "invalid hashmap key"
 
-proc tokenizer(str: string): seq[Token] =
+proc tokenizer*(str: string): seq[Token] =
   result = newSeq[Token](0)
   var
     matches: array[0..0, string]
@@ -47,7 +42,7 @@ proc tokenizer(str: string): seq[Token] =
     #echo "Position: ", position, " Line Start:", linestart
     #echo "String: ", s[0 .. position]
     #echo "Line: ", token.line, " Column: ", token.column
-    if not token.value.match(REGEX_COMMENT):
+    if not token.value.match(re"^;"):
       result.add(token)
     s = s.substr(tokstart + tokend, s.len-1)
     matches[0] = nil
@@ -70,24 +65,27 @@ proc peek*(r: Reader): Token =
 proc peekprevious(r: Reader): Token =
   return r.tokens[r.pos-1]
 
-proc next*(r: var Reader): Token =
+proc next*(r: var Reader): Token {.discardable.} =
   result = r.tokens[r.pos]
   r.pos = r.pos + 1
 
 proc readAtom*(r: var Reader): Node =
   let token = r.peek()
-  if token.value.match(REGEX_KEYWORD):
-    return newKeyword(token)
-  elif token.value.match(REGEX_STRING):
-    return newString(token)
-  elif token.value.match(REGEX_INT):
-    return newInt(token)
+  if token.value.match(re"^:[\w]+$"):
+    result = newKeyword(token)
+  elif token.value.match(re"""^".*"$"""):
+    result = newString(token)
+  elif token.value.match(re"^[\d]+$"):
+    result = newInt(token)
   elif token.value == "nil":
-    return newNil(token)
-  elif token.value == "false" or token.value == "true":
-    return newBool(token)
+    result = newNil(token)
+  elif token.value == "#f" or token.value == "#t":
+    result = newBool(token)
   else:
-    return newSymbol(token)
+    result = newSymbol(token)
+  dbg:
+    echo "Token: <$1>" % token.value
+    echo "READ ATOM: $1 -- $2" % [$result, result.kindname]
 
 proc readList*(r: var Reader): Node =
   var list = newSeq[Node]()

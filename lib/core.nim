@@ -207,12 +207,12 @@ defun "nth", args:
     incorrectValueError "nth: Index out of bounds", args[1]
   return args[0].seqVal[args[1].intVal]
 
-defun "first", args:
+defun "car", args:
   if args[0].seqVal.len == 0:
     return newNil()
   return args[0].seqVal[0]
 
-defun "rest", args:
+defun "cdr", args:
   if args[0].seqVal.len == 0:
     return newList(args[0].seqVal)
   return newList(args[0].seqVal[1 .. ^1])

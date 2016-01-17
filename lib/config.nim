@@ -5,12 +5,12 @@ import
   strutils
 
 const
-  cfgfile       = "ickle.nimble".slurp
-  prompt*       = "=) "
+  cfgfile         = "ickle.nimble".slurp
+  prompt*         = "=) "
 
 var
-  file*:string  = nil
-  debug*        = false
+  file*: string   = nil
+  debug*          = false
   version*: string
   program*: string
   author*: string

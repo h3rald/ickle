@@ -36,9 +36,9 @@ proc prStr*(p: Printer, form: Node, printReadably = true): string =
       result = $form.intVal
     of Bool:
       if form.boolVal:
-        result = "true"
+        result = "#t"
       else:
-        result = "false"
+        result = "#f"
     of Keyword:
       result = form.keyrep
     of Nil:

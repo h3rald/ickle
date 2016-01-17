@@ -165,7 +165,7 @@ proc newBool*(t: Token): Node =
   new(result)
   result.kind = Bool
   result.token = t
-  if t.value == "true":
+  if t.value == "#t":
     result.boolVal = true
   else:
     result.boolVal = false

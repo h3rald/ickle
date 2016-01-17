@@ -23,7 +23,7 @@ proc read*(prompt = prompt): Node =
   historyAdd(line)
   return line.readStr()
 
-proc eval*(ast: Node, env: Env): Node
+proc eval*(ast: Node, env: Env): Node {.discardable.}
 
 proc print*(n: Node) =
   echo p.prStr(n)
@@ -45,7 +45,7 @@ proc isMacroCall(ast: Node, env: Env): bool =
 
 proc eval_ast(ast: Node, env: var Env): Node =
   dbg:
-    echo "EVAL-AST: " & $ast
+    echo "EVAL-AST: $1 -- $2" % [$ast, ast.kindname]
   case ast.kind:
     of Symbol:
       return env.get(ast)
@@ -89,10 +89,9 @@ proc quasiquoteFun(ast: Node): Node =
     return newList(list)
 
 proc printEnvFun(env: Env): Node =
-  var p:Printer
-  echo "Printing environment: $1" % env.name
+  echo "Printing environment: $1"
   for k, v in env.data.pairs:
-    echo "'$1'\t\t= $2" % [k, p.prStr(v)]
+    echo "'$1'\t\t= $2" % [k, $v]
   return newNil()
 
 proc defExclFun(ast: Node, env: var Env): Node =
@@ -166,7 +165,7 @@ proc eval(ast: Node, env: Env): Node =
   var ast = ast
   var env = env
   dbg:
-    echo "EVAL: " & $ast
+    echo "EVAL: $1 -- $2" % [$ast, ast.kindname]
   template apply =
     let el = eval_ast(ast, env)
     let f = el.seqVal[0]
@@ -187,9 +186,9 @@ proc eval(ast: Node, env: Env): Node =
       of "print-env":   return printEnvFun(env)
       of "def!":        return defExclFun(ast, env)
       of "let*":        ast = letStarFun(ast, env)
-      of "do":          ast = doFun(ast, env)
+      of "begin":       ast = doFun(ast, env)
       of "if":          ast = ifFun(ast, env)
-      of "fn*":         return fnStarFun(ast, env)
+      of "lambda":      return fnStarFun(ast, env)
       of "defmacro!":   return defMacroExclFun(ast, env)
       of "macroexpand": return macroExpandFun(ast.seqVal[1], env)
       of "quote":       return ast.seqVal[1]
@@ -201,6 +200,17 @@ proc eval(ast: Node, env: Env): Node =
 defun "eval", args:
   return eval(args[0], MAINENV)
 
+#defnative "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))"
+
+
+proc evalText*(s: string): Node {.discardable.}=
+  var r = Reader(tokens: s.tokenizer(), pos: 0)
+  if r.tokens.len == 0:
+    noTokensError()
+  while r.pos < r.tokens.len:
+    result = eval(r.readForm(), MAINENV)
+    r.next()
+
 defun "load-file", args:
   let f = args[0].stringVal
   let oldfile = file
@@ -209,19 +219,18 @@ defun "load-file", args:
   else:
     file = f
     try:
-      result = eval(readStr(f.readFile), MAINENV)
+      #result = eval(readStr(f.readFile), MAINENV)
+      result = f.readFile.evalText
     finally:
       file = oldfile
 
 proc defnative*(s: string) =
-  discard eval(readStr(s), MAINENV)
+  eval(readStr(s), MAINENV)
 
 ### Native Functions
 
-defnative "(def! not (fn* (x) (if x false true)))"
+#defnative "(def! not (lambda (x) (if x false true)))"
 
-#defnative "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))"
+#defnative "(defmacro! cond (lambda (& xs) (if (> (count xs) 0) (list 'if (car xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (cdr (cdr xs)))))))"
 
-defnative "(defmacro! cond (fn* (& xs) (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))"
-
-defnative "(defmacro! or (fn* (& xs) (if (empty? xs) nil (if (= 1 (count xs)) (first xs) `(let* (or_FIXME ~(first xs)) (if or_FIXME or_FIXME (or ~@(rest xs))))))))"
+#defnative "(defmacro! or (lambda (& xs) (if (empty? xs) nil (if (= 1 (count xs)) (car xs) `(let* (or_FIXME ~(car xs)) (if or_FIXME or_FIXME (or ~@(cdr xs))))))))"

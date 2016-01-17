@@ -24,6 +24,7 @@ proc newEnv*(outer: Env = nil, binds, exprs: Node = newNil()): Env =
         result.data.setKey(b.stringVal,  exprs.seqVal[i])
 
 proc set*(env: Env, sym: string, n: Node): Node {.discardable.} =
+  discard $n # TODO investigate why this makes evalText work!
   dbg:
     echo "ENV SET: $1 = $2" % [sym, $n]
   env.data.setKey(sym, n)
