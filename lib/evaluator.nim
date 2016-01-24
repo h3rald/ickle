@@ -114,6 +114,11 @@ proc defineFun(ast: Node, env: var Env): Node =
     # Reset identifier to first item of the first list  
     first = first.seqVal[0]
     value = lambdaFun(fn, env)
+  elif first.kind == Pair:
+    # Assuming Function name with rest argument: (define (plus . x) (+ (car x) (cdr x)))
+    let fn = newList(newNil(), first.seqVal[1], second)
+    first = first.seqVal[0]
+    value = lambdaFun(fn, env)
   else:
     value = eval(second, env)
   return env.set(first.keyval, value)

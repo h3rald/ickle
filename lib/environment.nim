@@ -12,6 +12,17 @@ proc newEnv*(outer: Env = nil, binds, exprs: Node = newNil()): Env =
   result = Env(outer: outer)
   if binds.kind in {List, Vector}:
     for i, b in binds.seqVal:
+      if b.kind == Pair and i == binds.seqVal.high:
+        # Last element of the list is a pair
+        var list: Node
+        if exprs.seqVal.len == 0:
+          list = newList(exprs.seqVal)
+        else:
+          list = newList(exprs.seqVal[i+1 .. ^1])
+        result.data[binds.seqVal[i].seqVal[0].keyVal] = exprs.seqVal[i]
+        result.data[binds.seqVal[i].seqVal[1].keyVal] = list
+        break
+      # TODO Remove support for & for R7RS compliance
       if b.stringVal == "&":
         var list: Node
         if exprs.seqVal.len == 0:
@@ -22,6 +33,10 @@ proc newEnv*(outer: Env = nil, binds, exprs: Node = newNil()): Env =
         break
       else:
         result.data[b.stringVal] =  exprs.seqVal[i]
+  elif binds.kind == Symbol:
+    # Rest argument  
+    let list = newList(exprs.seqVal[0 .. ^1])
+    result.data[binds.keyVal] = list
 
 proc set*(env: Env, sym: string, n: Node): Node {.discardable.} =
   discard $n # TODO investigate why this makes evalText work!
