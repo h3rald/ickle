@@ -109,23 +109,27 @@ proc toList*(n: Node): Node =
 
 proc readList*(r: var Reader): Node =
   var list = newSeq[Node]()
-  var isPair = false
+  var hasPair = false
   try:
     discard r.peek()
   except:
     parsingError UNMATCHED_PAREN, r.peekprevious
   while r.peek.value != ")":
     if r.peek.value == ".": 
-      # Process Pair
-      if list.len != 1:
-        parsingError "Invalid Pair", r.peekprevious
-      else:
-        isPair = true
+      hasPair = true
       discard r.next()
       continue
-    list.add r.readForm()
-    if isPair and list.len != 2:
-      parsingError "Invalid Pair", r.peekprevious
+    if hasPair:
+      if list.len == 0:
+        parsingError "Invalid Pair", r.peekprevious
+      var pair = newSeq[Node]()
+      pair.add list.pop
+      pair.add r.readForm()
+      list.add newPair(pair)
+    else:
+      list.add r.readForm()
+    #if isPair and list.len != 2:
+    #  parsingError "Invalid Pair", r.peekprevious
     discard r.next()
     if r.tokens.len == r.pos:
       parsingError UNMATCHED_PAREN, r.peekprevious
@@ -133,8 +137,12 @@ proc readList*(r: var Reader): Node =
       discard r.peek()
     except:
       parsingError UNMATCHED_PAREN, r.peekprevious
-  if isPair:
-    return newPair(list).toList
+  if hasPair:
+    if list[0].kind == Pair and list.len == 1:
+      # ((1 . 2))
+      return list[0].toList
+    else:
+      return newPair(list).toList
   else:
     return newList(list)
 

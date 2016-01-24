@@ -11,11 +11,15 @@ proc prStr*(p: Printer, form: Node, printReadably = true): string =
       let start = if form.kind == Vector: "[" else: "("
       let finish = if form.kind == Vector: "]" else: ")"
       result &= start
-      var count = 0
-      for i in form.seqVal:
-        count.inc
-        result &= p.prStr(i, printReadably)
-        if count < form.seqVal.len:
+      let els = form.seqVal
+      for i in 0.countup(els.high): 
+        let res = p.prStr(els[i], printReadably)
+        if els[i].kind == Pair and i == els.high:
+          # Pair in last position -> do not print surrounding parens
+          result &= res[1 .. ^2]
+        else:
+          result &= p.prStr(els[i], printReadably)
+        if i < els.high:
           if form.kind == Pair:
             result &= " . "
           else:

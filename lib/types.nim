@@ -122,8 +122,8 @@ proc newList*(nseq: seq[Node]): Node =
   result.seqVal = nseq
 
 proc newPair*(nseq: seq[Node]): Node =
-  if nseq.len != 2:
-    incorrectValueError("Invalid Pair")
+  #if nseq.len != 2:
+  #  incorrectValueError("Invalid Pair")
   new(result)
   result.kind = Pair
   result.seqVal = nseq
