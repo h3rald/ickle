@@ -104,3 +104,7 @@
   (test-suite 'All-Tests
     (test-tests)
     (suite-tests))) 
+
+(test-report
+  (test '(> 3 5))
+  (test '(> 6 5)))

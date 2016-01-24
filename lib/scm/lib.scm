@@ -1,18 +1,5 @@
 (define not (lambda (x) (if x #f #t)))
 
-(defmacro! cond
-  (lambda (& xs)
-    (if (> (count xs) 0)
-      (list 'if (car xs)
-        (if (> (count xs) 1) (nth xs 1)
-    (throw "odd number of forms to cond"))
-      (cons 'cond (cdr (cdr xs)))))))
-
-(defmacro! or
-  (lambda (& xs)
-    (if (empty? xs) nil
-      (if (equal? 1 (count xs)) (car xs) `(let* (or_FIXME ~(car xs)) (if or_FIXME or_FIXME (or ~@(cdr xs))))))))
-
 (define caar (lambda (x) (car (car x))))
 (define cadr (lambda (x) (car (cdr x))))
 (define cdar (lambda (x) (cdr (car x))))

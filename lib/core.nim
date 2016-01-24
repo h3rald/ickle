@@ -3,14 +3,16 @@ import
   strutils,
   critbits,
   times,
-  readline
+  readline,
+  os
 
 import
   config,
   types,
   reader,
   printer,
-  environment
+  environment,
+  evaluator
 
 ### Constants
 
@@ -19,6 +21,10 @@ defconst "*host-language*", newString("nim")
 ### Functions working with all types
 
 defun "equal?", args:
+  return newBool(args[0] == args[1])
+
+# TODO refine
+defun "=", args:
   return newBool(args[0] == args[1])
 
 # TODO refine
@@ -335,7 +341,7 @@ defun "newline", args:
   return newNil()
 
 defun "display", args:
-  echo $args[0]
+  echo $~args[0]
   return newNil()
 
 defun "slurp", args:
@@ -364,3 +370,26 @@ defun "debug", args:
   else:
     debug = true
     return newBool(true)
+
+### Evaluation 
+
+defun "eval", args:
+  return eval(args[0], MAINENV)
+
+defun "load-file", args:
+  let f = args[0].stringVal
+  let oldfile = file
+  if not f.existsFile:
+    incorrectValueError "load-file: File '$1' does not exist" % f, args[0]
+  else:
+    file = f
+    try:
+      #result = eval(readStr(f.readFile), MAINENV)
+      result = f.readFile.evalText
+    finally:
+      file = oldfile
+
+### Boolean Functions
+
+
+

@@ -3,16 +3,14 @@ import
   sequtils,
   strutils,
   readline,
-  regex,
-  os
+  regex
 
 import
   config,
   types,
   reader,
   printer,
-  environment,
-  core
+  environment
 
 var
   p: Printer
@@ -32,7 +30,7 @@ proc rep*(env: var Env) =
   print(eval(read(), env))
 
 proc isMacroCall(ast: Node, env: Env): bool =
-  if ast.kind == List and ast.seqVal[0].kind == Symbol:
+  if ast.kind == List and ast.seqVal.len > 0 and ast.seqVal[0].kind == Symbol:
     try:
       let f = env.get(ast.seqVal[0].keyval)
       if f.kind == Proc:
@@ -135,6 +133,24 @@ proc letStarFun(ast: Node, env: var Env): Node =
   return ast.seqVal[2]
   # Continue loop (TCO)
 
+proc letFun(ast: Node, env: var Env): Node =
+  var nEnv = newEnv(outer = env)
+  var syms = newSeq[string]()
+  var bodies = newSeq[Node]()
+  case ast.seqVal[1].kind
+  of List, Vector:
+    for i in countup(0, ast.seqVal[1].seqVal.high, 2):
+      syms.add ast.seqVal[1].seqVal[i].keyval
+      bodies.add eval(ast.seqVal[1].seqVal[i+1], nEnv)
+    for i in 0..ast.seqVal[1].seqVal.high:
+      discard nEnv.set(syms[i], bodies[i])
+  else:
+    incorrectValueError "let: First argument is not a list or vector", ast.seqVal[1]
+  env = nEnv
+  return ast.seqVal[2]
+  # Continue loop (TCO)
+
+
 proc beginFun(ast: Node, env: var Env): Node =
   discard eval_ast(newList(ast.seqVal[1 .. <ast.seqVal.high]), env)
   return ast.seqVal[ast.seqVal.high]
@@ -175,6 +191,39 @@ proc tryFun(ast: Node, env: Env): Node =
   else:
     return eval(ast.seqVal[1], env)
 
+proc andFun(ast: Node, env: Env): Node =
+  if ast.seqVal.len == 1:
+    return newBool(true)
+  else:
+    var expr: Node
+    for i in 1..ast.seqVal.high:
+      result = eval(ast.seqVal[i], env)
+      if result == newBool(false):
+        return newBool(false)
+
+proc orFun(ast: Node, env: Env): Node =
+  if ast.seqVal.len == 1:
+    return newBool(false)
+  else:
+    var expr: Node
+    for i in 1..ast.seqVal.high:
+      result = eval(ast.seqVal[i], env)
+      if result != newBool(false):
+        return result
+    return newBool(false)
+
+proc condFun(ast: Node, env: Env): Node =
+  let f = newBool(false)
+  for i in 1..ast.seqVal.high:
+    if i == ast.seqVal.high:
+      if ast.seqVal[i].seqVal[0].kind == Symbol and ast.seqVal[i].seqVal[0].keyval == "else":
+        # Execute else clause
+        return ast.seqVal[i].seqVal[1]
+    else:
+      if eval(ast.seqVal[i].seqVal[0], env) != f:
+        return ast.seqVal[i].seqVal[1]
+  return newNil()
+
 ###
 
 proc eval(ast: Node, env: Env): Node =
@@ -202,6 +251,7 @@ proc eval(ast: Node, env: Env): Node =
       of "print-env":   return printEnvFun(env)
       of "define":      return defineFun(ast, env)
       of "let*":        ast = letStarFun(ast, env)
+      of "let":         ast = letFun(ast, env)
       of "begin":       ast = beginFun(ast, env)
       of "if":          ast = ifFun(ast, env)
       of "lambda":      return lambdaFun(ast, env)
@@ -210,14 +260,11 @@ proc eval(ast: Node, env: Env): Node =
       of "quote":       return ast.seqVal[1]
       of "quasiquote":  ast = quasiquoteFun(ast.seqVal[1])
       of "try*":        return tryFun(ast, env)
+      of "and":         ast = andFun(ast, env)
+      of "or":          ast = orFun(ast, env)
+      of "cond":        ast = condFun(ast, env)
       else: apply()
     else: apply()
-
-defun "eval", args:
-  return eval(args[0], MAINENV)
-
-#defnative "(define load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))"
-
 
 proc evalText*(s: string): Node {.discardable.}=
   var r = Reader(tokens: s.tokenizer(), pos: 0)
@@ -227,21 +274,8 @@ proc evalText*(s: string): Node {.discardable.}=
     result = eval(r.readForm(), MAINENV)
     r.next()
 
-defun "load-file", args:
-  let f = args[0].stringVal
-  let oldfile = file
-  if not f.existsFile:
-    incorrectValueError "load-file: File '$1' does not exist" % f, args[0]
-  else:
-    file = f
-    try:
-      #result = eval(readStr(f.readFile), MAINENV)
-      result = f.readFile.evalText
-    finally:
-      file = oldfile
-
-proc defnative*(s: string) =
-  eval(readStr(s), MAINENV)
+#proc defnative*(s: string) =
+#  eval(readStr(s), MAINENV)
 
 ### Native Functions
 
