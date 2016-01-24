@@ -182,8 +182,6 @@ defun "/", args:
 
 defun "count", args:
   case args[0].kind:
-  of Nil:
-    return newInt(0)
   of List, Vector:
     return newInt(args[0].seqVal.len)
   else:
@@ -192,7 +190,11 @@ defun "count", args:
 defun "cons", args:
   var list = newSeq[Node]()
   list.add args[0]
-  return newList(list & args[1].seqVal)
+  if args[1].kind == List:
+    return newList(list & args[1].seqVal)
+  else:
+    list.add args[1]
+    return newPair(list)
 
 defun "concat", args:
   var list: seq[Node]

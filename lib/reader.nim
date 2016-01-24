@@ -77,8 +77,6 @@ proc readAtom*(r: var Reader): Node =
     result = newString(token)
   elif token.value.match(re"^[\d]+$"):
     result = newInt(token)
-  elif token.value == "nil":
-    result = newNil(token)
   elif token.value == "#f" or token.value == "#t":
     result = newBool(token)
   else:
@@ -87,14 +85,47 @@ proc readAtom*(r: var Reader): Node =
     echo "Token: <$1>" % token.value
     echo "READ ATOM: $1 -- $2" % [$result, result.kindname]
 
+proc isEmpty*(n: Node): bool =
+  return n.kind == List and n.seqVal.len == 0
+
+proc toList*(n: Node): Node = 
+  var car = n.seqVal[0]
+  var cdr = n.seqVal[1]
+  var list = newSeq[Node]()
+  list.add car
+  if cdr.isEmpty:
+    return newList(list)
+  elif cdr.kind == List:
+    return newList(list & cdr.seqVal)
+  elif cdr.kind == Pair:
+    let rest = cdr.toList
+    if rest.kind == List:
+      return newList(list & rest.seqVal)
+    else:
+      list.add rest
+      return newList(list)
+  else:
+    return n
+
 proc readList*(r: var Reader): Node =
   var list = newSeq[Node]()
+  var isPair = false
   try:
     discard r.peek()
   except:
     parsingError UNMATCHED_PAREN, r.peekprevious
   while r.peek.value != ")":
+    if r.peek.value == ".": 
+      # Process Pair
+      if list.len != 1:
+        parsingError "Invalid Pair", r.peekprevious
+      else:
+        isPair = true
+      discard r.next()
+      continue
     list.add r.readForm()
+    if isPair and list.len != 2:
+      parsingError "Invalid Pair", r.peekprevious
     discard r.next()
     if r.tokens.len == r.pos:
       parsingError UNMATCHED_PAREN, r.peekprevious
@@ -102,7 +133,10 @@ proc readList*(r: var Reader): Node =
       discard r.peek()
     except:
       parsingError UNMATCHED_PAREN, r.peekprevious
-  return newList(list)
+  if isPair:
+    return newPair(list).toList
+  else:
+    return newList(list)
 
 proc readVector*(r: var Reader): Node =
   var vector = newSeq[Node]()

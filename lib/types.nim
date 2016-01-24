@@ -16,6 +16,7 @@ type
     pos*: int
     tokens*: seq[Token]
   NodeKind* = enum
+    Pair,
     List,
     Atom,
     Symbol,
@@ -26,8 +27,7 @@ type
     HashMap,
     Proc,
     NativeProc,
-    Bool,
-    Nil
+    Bool
   NodeHash* = Table[string, Node]
   Node* = ref NodeObj
   NodeProc* = proc(args: varargs[Node]): Node
@@ -45,7 +45,7 @@ type
       procVal*: ProcType
     of NativeProc:
       nativeProcVal*: NodeProc
-    of List, Vector:
+    of List, Vector, Pair:
       seqVal*:   seq[Node]
     of String, Symbol, Keyword:
       stringVal*: string
@@ -57,8 +57,6 @@ type
       hashVal*: NodeHash
     of Bool:
       boolVal*: bool
-    of Nil:
-      discard
   Env* = ref EnvObj
   EnvObj* = object
     name*: string
@@ -124,6 +122,13 @@ proc newList*(nseq: seq[Node]): Node =
   result.kind = List
   result.seqVal = nseq
 
+proc newPair*(nseq: seq[Node]): Node =
+  if nseq.len != 2:
+    incorrectValueError("Invalid Pair")
+  new(result)
+  result.kind = Pair
+  result.seqVal = nseq
+
 proc newList*(args: varargs[Node]): Node =
   new(result)
   result.kind = List
@@ -133,12 +138,14 @@ proc newList*(args: varargs[Node]): Node =
 
 proc newNil*(): Node =
   new(result)
-  result.kind = Nil
+  result.kind = List
+  result.seqVal = newSeq[Node](0)
 
 proc newNil*(t: Token): Node =
   new(result)
   result.token = t
-  result.kind = Nil
+  result.kind = List
+  result.seqVal = newSeq[Node](0)
 
 proc newVector*(nseq: seq[Node]): Node =
   new(result)
@@ -240,6 +247,8 @@ proc newProc*(f: NodeProc, isMacro = false): Node =
 
 proc kindName*(n: Node): string =
   case n.kind:
+    of Pair:
+      return "pair"
     of List:
       return "list"
     of Vector:
@@ -260,19 +269,21 @@ proc kindName*(n: Node): string =
       return "boolean"
     of HashMap:
       return "hashmap"
-    of Nil:
-      return "nil"
     of Atom:
       return "atom"
 
 proc `==`*(a, b: Node): bool =
+  #if a.kind == Pair:
+  #  var a = a.toList
+  #if b.kind == Pair:
+  #  var b = b.toList
   if a.kind != b.kind:
     if (a.kind in {List, Vector}) and (b.kind in {List, Vector}):
       return a.seqVal == b.seqVal
     else:
       return false
   case a.kind:
-    of List, Vector:
+    of List, Vector, Pair:
       return a.seqVal == b.seqVal
     of Proc:
       return a.procVal == b.procVal
@@ -286,20 +297,17 @@ proc `==`*(a, b: Node): bool =
       return a.boolVal == b.boolVal
     of HashMap:
       return a.hashVal == b.hashVal
-    of Nil:
-      return true
     of Atom:
       return a.atomVal == b.atomVal
 
-
 proc falsy*(n: Node): bool =
-  if n.kind == Nil or n.kind == Bool and n.boolVal == false:
+  if n.isNil or n.kind == Bool and n.boolVal == false:
     return true
   else:
     return false
 
 proc isPair*(n: Node): bool =
-  return n.kind in {List, Vector} and n.seqVal.len > 0
+  return n.kind == Pair or n.kind == List and n.seqVal.len == 1
 
 proc getFun*(x: Node): NodeProc =
   if x.kind == NativeProc: result = x.nativeProcVal
