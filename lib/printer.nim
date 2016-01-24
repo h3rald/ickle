@@ -2,7 +2,7 @@ import
   config,
   types,
   strutils,
-  tables
+  critbits
 
 proc prStr*(p: Printer, form: Node, printReadably = true): string =
   result = ""

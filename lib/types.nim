@@ -1,6 +1,5 @@
 import
-  tables,
-  hashes,
+  critbits,
   strutils
 
 import
@@ -28,7 +27,7 @@ type
     Proc,
     NativeProc,
     Bool
-  NodeHash* = Table[string, Node]
+  NodeMap* = CritBitTree[Node]
   Node* = ref NodeObj
   NodeProc* = proc(args: varargs[Node]): Node
   ProcType* = ref object
@@ -54,14 +53,14 @@ type
     of Atom:
       atomVal*: Node
     of HashMap:
-      hashVal*: NodeHash
+      hashVal*: NodeMap
     of Bool:
       boolVal*: bool
   Env* = ref EnvObj
   EnvObj* = object
     name*: string
     outer*: Env
-    data*: NodeHash
+    data*: NodeMap
   NoTokensError* = object of Exception
   UnknownSymbolError* = object of Exception
   ParsingError* = object of Exception
@@ -188,13 +187,13 @@ proc newInt*(t: Token): Node =
   result.token = t
   result.intVal = t.value.parseInt
 
-proc newHashMap*(h: NodeHash): Node =
+proc newHashMap*(h: NodeMap): Node =
   new(result)
   result.kind = HashMap
   result.hashVal = h
 
-proc `[]=`*(h: var NodeHash, key: string, value: Node) =
-  h.add(key, value)
+#proc `[]=`*(h: var NodeMap, key: string, value: Node) =
+#  h[key] = value
 
 proc newString*(s: string): Node =
   new(result)
@@ -272,6 +271,15 @@ proc kindName*(n: Node): string =
     of Atom:
       return "atom"
 
+proc `==`*[T](a, b: CritBitTree[T]): bool =
+  if a.len != b.len:
+    return false
+  else:
+    for k in a.keys:
+      if a[k] != b[k]:
+        return false
+  return true
+
 proc `==`*(a, b: Node): bool =
   #if a.kind == Pair:
   #  var a = a.toList
@@ -325,10 +333,3 @@ proc keyrep*(s: Node): string =
     return ':' & s.stringVal[1 .. s.stringVal.high]
   else:
     return s.stringVal
-
-proc setKey*(h: var NodeHash, key: string, value: Node): Node {.discardable.} =
-  # TODO check -- otherwise it generates duplicated entries
-  if h.hasKey(key):
-    h.del(key)
-  h[key] = value
-  return value

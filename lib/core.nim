@@ -1,7 +1,7 @@
 import
   sequtils,
   strutils,
-  tables,
+  critbits,
   times,
   readline
 
@@ -18,7 +18,15 @@ defconst "*host-language*", newString("nim")
 
 ### Functions working with all types
 
-defun "=", args:
+defun "equal?", args:
+  return newBool(args[0] == args[1])
+
+# TODO refine
+defun "eq?", args:
+  return newBool(args[0] == args[1])
+
+# TODO refine
+defun "eqv?", args:
   return newBool(args[0] == args[1])
 
 defun "throw", args:
@@ -78,13 +86,13 @@ defun "vector", args:
   return newVector(list)
 
 defun "hash-map", args:
-  var hash = initTable[string, Node]()
+  var map: NodeMap
   for i in countup(0, args.high, 2):
     if args[i].kind == Keyword:
-      hash[args[i].keyval] = args[i+1]
+      map[args[i].keyval] = args[i+1]
     else:
-      hash[args[i].stringVal] = args[i+1]
-  return newHashMap(hash)
+      map[args[i].stringVal] = args[i+1]
+  return newHashMap(map)
 
 ### Predicates
 
@@ -148,9 +156,18 @@ defun "apply", args:
   return f.getFun()(list)
 
 defun "map", args:
+  # TODO Support for multiple list arguments
   result = newList()
+  let fun = args[0].getFun()
   for i in 0 .. args[1].seqVal.high:
-    result.seqVal.add args[0].getFun()(args[1].seqVal[i])
+    result.seqVal.add fun(args[1].seqVal[i])
+
+defun "for-each", args:
+  # TODO Support for multiple list arguments
+  let fun = args[0].getFun()
+  for i in 0 .. args[1].seqVal.high:
+    discard fun(args[1].seqVal[i])
+  return newNil()
 
 ### Numeric Functions
 
@@ -216,8 +233,25 @@ defun "car", args:
 
 defun "cdr", args:
   if args[0].seqVal.len == 0:
-    return newList(args[0].seqVal)
-  return newList(args[0].seqVal[1 .. ^1])
+    return newNil()
+  if args[0].seqVal.len == 2:
+    return args[0].seqVal[1]
+  else:
+    return newList(args[0].seqVal[1 .. ^1])
+
+defun "set-car!", args:
+  var list = args[0].seqVal
+  list[0] = args[1]
+  if args[0].kind == Pair:
+    return newPair(list)
+  else: # list
+    return newList(list)
+
+defun "set-cdr!", args:
+  var list = args[0].seqVal
+  list[0] = args[0].seqVal[0]
+  list[1] = args[1]
+  return newPair(list)
 
 defun "conj", args:
   var list = newSeq[Node]()
@@ -238,13 +272,13 @@ defun "conj", args:
 defun "assoc", args:
   var hash = args[0].hashVal
   for i in countup(1, args.high, 2):
-    hash.setKey(args[i].keyval, args[i+1])
+    hash[args[i].keyval] = args[i+1]
   return newHashMap(hash)
 
 defun "dissoc", args:
   var hash = args[0].hashVal
   for i in 1 .. args.high:
-    hash.del(args[i].keyval)
+    hash.excl(args[i].keyval)
   return newHashMap(hash)
 
 defun "get", args:
@@ -294,6 +328,14 @@ defun "prn", args:
 
 defun "println", args:
   echo args.map(proc(n: Node): string = return $~n).join(" ")
+  return newNil()
+
+defun "newline", args:
+  echo ""
+  return newNil()
+
+defun "display", args:
+  echo $args[0]
   return newNil()
 
 defun "slurp", args:

@@ -3,7 +3,7 @@ import
   types,
   strutils,
   printer,
-  tables
+  critbits
 
 import
   config
@@ -158,7 +158,7 @@ proc readVector*(r: var Reader): Node =
 
 proc readHashMap*(r: var Reader): Node =
   var p: Printer
-  var hash = initTable[string, Node]()
+  var map: NodeMap
   try:
     discard r.peek()
   except:
@@ -168,7 +168,7 @@ proc readHashMap*(r: var Reader): Node =
     key = r.readAtom()
     discard r.next()
     if key.kind in {String, Keyword}:
-      hash.add(key.keyval, r.readForm())
+      map[key.keyval] = r.readForm()
       discard r.next()
       if r.tokens.len == r.pos:
         parsingError UNMATCHED_BRACE, r.peekprevious
@@ -178,7 +178,7 @@ proc readHashMap*(r: var Reader): Node =
         parsingError UNMATCHED_BRACE, r.peekprevious
     else:
       parsingError(INVALID_HASHMAP_KEY & " - got: '$value' ($type)" % ["value", p.prStr(key), "type", key.kindName], r.peekprevious)
-  return newhashMap(hash)
+  return newhashMap(map)
 
 proc readForm*(r: var Reader): Node =
   case r.peek.value:

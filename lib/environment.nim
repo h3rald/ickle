@@ -1,5 +1,5 @@
 import
-  tables,
+  critbits,
   strutils,
   sequtils
 
@@ -9,7 +9,7 @@ import
   printer
 
 proc newEnv*(outer: Env = nil, binds, exprs: Node = newNil()): Env =
-  result = Env(outer: outer, data: initTable[string, Node]())
+  result = Env(outer: outer)
   if binds.kind in {List, Vector}:
     for i, b in binds.seqVal:
       if b.stringVal == "&":
@@ -18,16 +18,16 @@ proc newEnv*(outer: Env = nil, binds, exprs: Node = newNil()): Env =
           list = newList(exprs.seqVal)
         else:
           list = newList(exprs.seqVal[i .. ^1])
-        result.data.setKey(binds.seqVal[i+1].stringVal, list)
+        result.data[binds.seqVal[i+1].stringVal] = list
         break
       else:
-        result.data.setKey(b.stringVal,  exprs.seqVal[i])
+        result.data[b.stringVal] =  exprs.seqVal[i]
 
 proc set*(env: Env, sym: string, n: Node): Node {.discardable.} =
   discard $n # TODO investigate why this makes evalText work!
   dbg:
     echo "ENV SET: $1 = $2" % [sym, $n]
-  env.data.setKey(sym, n)
+  env.data[sym] = n
   return n
 
 proc lookup*(env: Env, key: string): Env =

@@ -1,5 +1,5 @@
 import
-  tables,
+  critbits,
   sequtils,
   strutils,
   readline,
@@ -60,7 +60,7 @@ proc eval_ast(ast: Node, env: var Env): Node =
         list.add eval(i, env)
       return newVector(list)
     of HashMap:
-      var hash = initTable[string, Node]()
+      var hash: NodeMap
       for k, v in ast.hashVal.pairs:
         hash[k] = eval(v, env)
       return newHashMap(hash)
@@ -94,7 +94,9 @@ proc printEnvFun(env: Env): Node =
     echo "'$1'\t\t= $2" % [k, $v]
   return newNil()
 
-proc defExclFun(ast: Node, env: var Env): Node =
+proc defineFun(ast: Node, env: var Env): Node =
+  #let first = ast.seqVal[1]
+  #let second = ast.seqVal[2]
   return env.set(ast.seqVal[1].keyval, eval(ast.seqVal[2], env))
 
 proc letStarFun(ast: Node, env: var Env): Node =
@@ -109,7 +111,7 @@ proc letStarFun(ast: Node, env: var Env): Node =
   return ast.seqVal[2]
   # Continue loop (TCO)
 
-proc doFun(ast: Node, env: var Env): Node =
+proc beginFun(ast: Node, env: var Env): Node =
   discard eval_ast(newList(ast.seqVal[1 .. <ast.seqVal.high]), env)
   return ast.seqVal[ast.seqVal.high]
   # Continue loop (TCO)
@@ -184,9 +186,9 @@ proc eval(ast: Node, env: Env): Node =
     of Symbol:
       case ast.seqVal[0].stringVal
       of "print-env":   return printEnvFun(env)
-      of "def!":        return defExclFun(ast, env)
+      of "define":      return defineFun(ast, env)
       of "let*":        ast = letStarFun(ast, env)
-      of "begin":       ast = doFun(ast, env)
+      of "begin":       ast = beginFun(ast, env)
       of "if":          ast = ifFun(ast, env)
       of "lambda":      return fnStarFun(ast, env)
       of "defmacro!":   return defMacroExclFun(ast, env)
@@ -200,7 +202,7 @@ proc eval(ast: Node, env: Env): Node =
 defun "eval", args:
   return eval(args[0], MAINENV)
 
-#defnative "(def! load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))"
+#defnative "(define load-file (fn* (f) (eval (read-string (str \"(do \" (slurp f) \")\")))))"
 
 
 proc evalText*(s: string): Node {.discardable.}=
@@ -229,7 +231,7 @@ proc defnative*(s: string) =
 
 ### Native Functions
 
-#defnative "(def! not (lambda (x) (if x false true)))"
+#defnative "(define not (lambda (x) (if x false true)))"
 
 #defnative "(defmacro! cond (lambda (& xs) (if (> (count xs) 0) (list 'if (car xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (cdr (cdr xs)))))))"
 
