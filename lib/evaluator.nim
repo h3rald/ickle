@@ -94,10 +94,29 @@ proc printEnvFun(env: Env): Node =
     echo "'$1'\t\t= $2" % [k, $v]
   return newNil()
 
+proc lambdaFun(ast: Node, env: Env): Node =
+  var fnEnv = env
+  let fn = proc(args: varargs[Node]): Node =
+    var list = newSeq[Node]()
+    for arg in args:
+      list.add(arg)
+    var nEnv = newEnv(outer = fnEnv, binds = ast.seqVal[1], exprs = newList(list))
+    return eval(ast.seqVal[2], nEnv)
+  return newProc(fn, ast = ast.seqVal[2], params = ast.seqVal[1], env = env)
+
 proc defineFun(ast: Node, env: var Env): Node =
-  #let first = ast.seqVal[1]
-  #let second = ast.seqVal[2]
-  return env.set(ast.seqVal[1].keyval, eval(ast.seqVal[2], env))
+  var first = ast.seqVal[1]
+  let second = ast.seqVal[2]
+  var value: Node
+  if first.kind == List:
+    # Assuming Function name with arguments: (define (plus a b) (+ a b))
+    let fn = newList(newNil(), newList(first.seqVal[1 .. ^1]), second)
+    # Reset identifier to first item of the first list  
+    first = first.seqVal[0]
+    value = lambdaFun(fn, env)
+  else:
+    value = eval(second, env)
+  return env.set(first.keyval, value)
 
 proc letStarFun(ast: Node, env: var Env): Node =
   var nEnv = newEnv(outer = env)
@@ -123,16 +142,6 @@ proc ifFun(ast: Node, env: Env): Node =
     else: return newNil()
   else: return ast.seqVal[2]
   # Continue loop (TCO)
-
-proc fnStarFun(ast: Node, env: Env): Node =
-  var fnEnv = env
-  let fn = proc(args: varargs[Node]): Node =
-    var list = newSeq[Node]()
-    for arg in args:
-      list.add(arg)
-    var nEnv = newEnv(outer = fnEnv, binds = ast.seqVal[1], exprs = newList(list))
-    return eval(ast.seqVal[2], nEnv)
-  return newProc(fn, ast = ast.seqVal[2], params = ast.seqVal[1], env = env)
 
 proc defMacroExclFun(ast: Node, env: var Env): Node =
   var fun = ast.seqVal[2].eval(env)
@@ -190,7 +199,7 @@ proc eval(ast: Node, env: Env): Node =
       of "let*":        ast = letStarFun(ast, env)
       of "begin":       ast = beginFun(ast, env)
       of "if":          ast = ifFun(ast, env)
-      of "lambda":      return fnStarFun(ast, env)
+      of "lambda":      return lambdaFun(ast, env)
       of "defmacro!":   return defMacroExclFun(ast, env)
       of "macroexpand": return macroExpandFun(ast.seqVal[1], env)
       of "quote":       return ast.seqVal[1]
